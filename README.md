@@ -10,6 +10,6 @@ Il gioco si compone in tre (boh forse 5) file(?):
 - Destinatario: l'interfaccia da cui la seconda persona risponde.
 - Tramite: un csv che raccoglie le domande e le risposte. Quello che ti ho caricato probabilmente è inutile, contiene lo storico finora.
 
-L'LLM è chiamato nel file .gs Giocatore solo quando la risposta del destinatario è stata ricevuta, in modo che entrambe vengano mostrate allo stesso momento e il giocatore non abbia l'indizio della velocità di ricezione.
+L'LLM è chiamato nel file .gs Giocatore solo quando la risposta del destinatario è stata ricevuta, in modo che entrambe vengano mostrate allo stesso momento e il giocatore non abbia l'indizio della velocità di ricezione. La domanda è data all'LLM dentro un prompt che gli spiega il gioco. LLM dentro questo prompt vede anche la lunghezza della risposta del destinatario e gli è richiesto di produrre una risposta di circa uguale lunghezza.
 
 Ti ringrazio molto per l'aiuto, se hai bisogno scrivimi 💕
