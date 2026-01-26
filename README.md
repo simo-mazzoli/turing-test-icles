@@ -1,5 +1,7 @@
 Ciao Matte, ho pensato di caricarti qui tutti i file che avevo usato per l'applicazione (che dopo l'ultima modifica che avevo fatto manco funziona). Spero ti faciliti le cose.
 
+Non so usare GitHub quindi avrei potuto far di meglio.
+
 Il gioco in breve funziona così, un giocatore digita una domanda e la invia. A questa domanda rispondono una persona (da un'altra interfaccia) e un LLM. Il giocatore riceve le risposte e deve indovinare quale delle due è prodotta dal LLM.
 
 
