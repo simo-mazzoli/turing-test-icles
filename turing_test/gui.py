@@ -9,12 +9,15 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QLineEdit,
     QHBoxLayout,
+    QDialog,
 )
 from PySide6.QtGui import QPixmap, QIcon
 from PySide6.QtCore import Qt, QFile, QTextStream, QTimer
 
 from turing_test.fsm import StateMachine
 from turing_test.message import MessageWidget
+from turing_test.player_response import PlayerResponseDialog
+from turing_test.ai_worker import AIWorker
 
 import rc_images
 # import rc_icons
@@ -86,6 +89,9 @@ class MainWindow(QMainWindow):
         self._fsm.state_gameplay.entered.connect(self.on_gameplay_entered)
         
         self._fsm.start()
+        # tracking for question rounds: id -> {question, ai, human, worker}
+        self._round_counter = 0
+        self._pending_rounds = {}
 
     def _create_main_menu_widget(self):
         widget = QWidget()
@@ -224,15 +230,39 @@ class MainWindow(QMainWindow):
                 return
             msg = MessageWidget(text, sender)
             messages_layout.addWidget(msg)
-            # auto-scroll to bottom shortly after adding
-            QTimer.singleShot(0, lambda: scroll.verticalScrollBar().setValue(scroll.verticalScrollBar().maximum()))
-
+            # force layout update and ensure the new widget is visible
+            messages_container.adjustSize()
+            scroll.ensureWidgetVisible(msg)
+            
         def on_send():
             text = line_edit.text().strip()
             if not text:
                 return
             append_message(text, "me")
             line_edit.clear()
+            # create a new round and start AI worker
+            round_id = self._round_counter = self._round_counter + 1
+            self._pending_rounds[round_id] = {"question": text, "ai": None, "human": None, "worker": None}
+
+            ai_worker = AIWorker(text, parent=self)
+            # keep reference so it doesn't get GC'd
+            self._pending_rounds[round_id]["worker"] = ai_worker
+            ai_worker.responseReady.connect(lambda r, rid=round_id: self._on_ai_ready(rid, r))
+            ai_worker.start()
+
+            # open a dialog for Player 2 to enter their response
+            dlg = PlayerResponseDialog(text, parent=self)
+            # modal: wait for player 2
+            if dlg.exec() == QDialog.Accepted:
+                resp = dlg.response_text
+                # store human response and maybe commit both messages
+                self._on_human_ready(round_id, resp)
+            else:
+                # player cancelled: drop the pending round (AI result will be ignored)
+                try:
+                    self._pending_rounds.pop(round_id, None)
+                except Exception:
+                    pass
 
         send_btn.clicked.connect(on_send)
         line_edit.returnPressed.connect(on_send)
@@ -251,3 +281,61 @@ class MainWindow(QMainWindow):
 
     def on_gameplay_entered(self):
         self._stacked_widget.setCurrentIndex(3)
+
+    def _on_ai_ready(self, round_id: int, text: str):
+        pending = self._pending_rounds.get(round_id)
+        if not pending:
+            return
+        pending["ai"] = text
+        self._maybe_commit_round(round_id)
+
+    def _on_human_ready(self, round_id: int, text: str):
+        pending = self._pending_rounds.get(round_id)
+        if not pending:
+            return
+        pending["human"] = text
+        self._maybe_commit_round(round_id)
+
+    def _maybe_commit_round(self, round_id: int):
+        pending = self._pending_rounds.get(round_id)
+        if not pending:
+            return
+        if pending.get("ai") is None or pending.get("human") is None:
+            return
+
+        # both ready: append human and ai as distinct messages
+        ai_text = pending.get("ai")
+        human_text = pending.get("human")
+
+        # find append_message in the gameplay widget scope: recreate minimal logic
+        # (we'll reuse the same append_message used earlier by calling the layout API)
+        try:
+            # access the current gameplay widget's scroll and layout
+            # locate the scroll area we created earlier by walking children
+            gp_widget = self._gameplay_widget
+            scroll = gp_widget.findChild(QScrollArea)
+            if scroll:
+                container = scroll.widget()
+                messages_layout = None
+                for child in container.children():
+                    if hasattr(child, 'layout'):
+                        # the messages_layout is the QVBoxLayout of the container
+                        pass
+                # safe fallback: use addWidget on container's layout
+                messages_layout = container.layout()
+                if messages_layout is None:
+                    return
+                # append human then ai
+                messages_layout.addWidget(MessageWidget(human_text, "other"))
+                messages_layout.addWidget(MessageWidget(ai_text, "other"))
+                # ensure visible
+                try:
+                    scroll.ensureWidgetVisible(container.children()[-1])
+                except Exception:
+                    QTimer.singleShot(0, lambda: scroll.verticalScrollBar().setValue(scroll.verticalScrollBar().maximum()))
+        finally:
+            # clean up pending
+            try:
+                self._pending_rounds.pop(round_id, None)
+            except Exception:
+                pass
