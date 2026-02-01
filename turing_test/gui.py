@@ -91,7 +91,6 @@ class MainWindow(QMainWindow):
         self._fsm.state_gameplay.entered.connect(self.on_gameplay_entered)
         
         self._fsm.start()
-        # tracking for question rounds: id -> {question, ai, human, worker}
         self._round_counter = 0
         self._pending_rounds = {}
 
@@ -183,14 +182,11 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(20, 20, 20, 0)
         layout.setSpacing(8)
 
-        # Scrollable message area
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setObjectName("whiteContainer")
         scroll.setStyleSheet(self._load_stylesheet(":/styles/container_full.qss"))
         messages_container = QWidget()
-        # ensure the container itself is transparent so the scroll area's rounded
-        # background masks any edges
         messages_container.setStyleSheet("background: transparent;")
         messages_layout = QVBoxLayout(messages_container)
         messages_layout.setContentsMargins(6, 6, 6, 6)
@@ -198,7 +194,6 @@ class MainWindow(QMainWindow):
         messages_layout.setAlignment(Qt.AlignTop)
         scroll.setWidget(messages_container)
 
-        # Input area (styled like the white container)
         input_container = QWidget()
         input_container.setObjectName("whiteContainer")
         input_container.setStyleSheet(self._load_stylesheet(":/styles/container.qss"))
@@ -216,13 +211,11 @@ class MainWindow(QMainWindow):
         menu_btn.setObjectName("btnBackFromGameplay")
 
         input_layout.addWidget(line_edit)
-        # make the line edit expand and push buttons to the right
         input_layout.setStretch(0, 1)
         input_layout.addWidget(send_btn)
         input_layout.addSpacing(12)
         input_layout.addWidget(menu_btn)
 
-        # add a spacer above the scroll area so it doesn't start at the very top
         layout.addSpacing(120)
         layout.addWidget(scroll)
         layout.addWidget(input_container)
@@ -232,7 +225,6 @@ class MainWindow(QMainWindow):
                 return
             msg = MessageWidget(text, sender)
             messages_layout.addWidget(msg)
-            # force layout update and ensure the new widget is visible
             messages_container.adjustSize()
             scroll.ensureWidgetVisible(msg)
             
@@ -242,25 +234,19 @@ class MainWindow(QMainWindow):
                 return
             append_message(text, "me")
             line_edit.clear()
-            # create a new round and start AI worker
             round_id = self._round_counter = self._round_counter + 1
             self._pending_rounds[round_id] = {"question": text, "ai": None, "human": None, "worker": None}
 
             ai_worker = AIWorker(text, parent=self)
-            # keep reference so it doesn't get GC'd
             self._pending_rounds[round_id]["worker"] = ai_worker
             ai_worker.responseReady.connect(lambda r, rid=round_id: self._on_ai_ready(rid, r))
             ai_worker.start()
 
-            # open a dialog for Player 2 to enter their response
             dlg = PlayerResponseDialog(text, parent=self)
-            # modal: wait for player 2
             if dlg.exec() == QDialog.Accepted:
                 resp = dlg.response_text
-                # store human response and maybe commit both messages
                 self._on_human_ready(round_id, resp)
             else:
-                # player cancelled: drop the pending round (AI result will be ignored)
                 try:
                     self._pending_rounds.pop(round_id, None)
                 except Exception:
@@ -305,15 +291,10 @@ class MainWindow(QMainWindow):
         if pending.get("ai") is None or pending.get("human") is None:
             return
 
-        # both ready: append human and ai as distinct messages
         ai_text = pending.get("ai")
         human_text = pending.get("human")
 
-        # find append_message in the gameplay widget scope: recreate minimal logic
-        # (we'll reuse the same append_message used earlier by calling the layout API)
         try:
-            # access the current gameplay widget's scroll and layout
-            # locate the scroll area we created earlier by walking children
             gp_widget = self._gameplay_widget
             scroll = gp_widget.findChild(QScrollArea)
             if scroll:
@@ -321,13 +302,10 @@ class MainWindow(QMainWindow):
                 messages_layout = None
                 for child in container.children():
                     if hasattr(child, 'layout'):
-                        # the messages_layout is the QVBoxLayout of the container
                         pass
-                # safe fallback: use addWidget on container's layout
                 messages_layout = container.layout()
                 if messages_layout is None:
                     return
-                # create two choices and shuffle them so player must guess
                 choices = [(human_text, "human"), (ai_text, "ai")]
                 random.shuffle(choices)
 
@@ -337,22 +315,18 @@ class MainWindow(QMainWindow):
                     messages_layout.addWidget(w)
                     msg_widgets.append((w, role))
 
-                # add poll below the two messages
                 poll = PollWidget(choices[0][0], choices[1][0])
                 messages_layout.addWidget(poll)
 
-                # determine which index corresponds to the human response
                 correct_index = 0 if choices[0][1] == "human" else 1
                 poll.choiceMade.connect(lambda idx, rid=round_id, p=poll, m=msg_widgets, ci=correct_index: self._on_poll_choice(rid, idx, p, m, ci))
 
-                # highlight corresponding message on hover
                 def _on_hover(idx, entering, m=msg_widgets):
                     try:
                         w, role = m[idx]
                         bubble = w.findChild(QLabel, "messageBubble")
                         if bubble is None:
                             return
-                        # store original style once
                         if not hasattr(bubble, '_orig_style'):
                             bubble._orig_style = bubble.styleSheet()
                         if entering:
@@ -363,28 +337,23 @@ class MainWindow(QMainWindow):
                         pass
 
                 poll.hoverChanged.connect(_on_hover)
-                # ensure visible (scroll to bottom)
                 try:
                     scroll.ensureWidgetVisible(poll)
                 except Exception:
                     QTimer.singleShot(0, lambda: scroll.verticalScrollBar().setValue(scroll.verticalScrollBar().maximum()))
         finally:
-            # clean up pending
             try:
                 self._pending_rounds.pop(round_id, None)
             except Exception:
                 pass
 
     def _on_poll_choice(self, round_id: int, choice_idx: int, poll_widget, msg_widgets, correct_index: int):
-        # mark messages: green for correct, red for incorrect selection
         for i, (w, role) in enumerate(msg_widgets):
             bubble = w.findChild(QLabel, "messageBubble")
             if bubble is None:
                 continue
             if i == correct_index:
-                # correct answer
                 bubble.setStyleSheet(bubble.styleSheet() + "border: 3px solid #28a745;")
             if i == choice_idx and i != correct_index:
-                # chosen wrong answer
                 bubble.setStyleSheet(bubble.styleSheet() + "border: 3px solid #e53935;")
 

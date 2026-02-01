@@ -9,11 +9,6 @@ class RateLimitError(Exception):
 
 
 class AIClient:
-    """Simple wrapper around google.genai Client tuned like in the cafoscari repo.
-
-    NOTE: this class embeds an API key from the other project as requested.
-    """
-
     MAX_REQUESTS_PER_MINUTE = 15
     RATE_LIMIT_WINDOW = 60
 

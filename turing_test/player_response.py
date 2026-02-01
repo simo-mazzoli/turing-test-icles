@@ -10,14 +10,6 @@ from PySide6.QtCore import Signal
 
 
 class PlayerResponseDialog(QDialog):
-    """Dialog shown to Player 2 to enter their response.
-
-    Usage:
-        dlg = PlayerResponseDialog(question_text)
-        if dlg.exec_() == QDialog.Accepted:
-            response = dlg.response_text
-    """
-
     responseSubmitted = Signal(str)
 
     def __init__(self, question: str = "", parent=None):

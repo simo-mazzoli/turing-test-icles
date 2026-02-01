@@ -40,7 +40,6 @@ class MessageWidget(QWidget):
 		vbox.addWidget(time_lbl, 0, Qt.AlignRight)
 
 		if self._sender == "me":
-			# name the widget to allow QSS targeting
 			self.setObjectName("message_me")
 			outer.addStretch()
 			outer.addLayout(vbox)
@@ -48,7 +47,6 @@ class MessageWidget(QWidget):
 				"background-color: #dcf8c6; border-radius: 10px; padding:8px;"
 			)
 		else:
-			# name the widget to allow QSS targeting
 			self.setObjectName("message_other")
 			outer.addLayout(vbox)
 			outer.addStretch()

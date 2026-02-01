@@ -3,10 +3,6 @@ from PySide6.QtCore import Signal, Qt, QEvent
 
 
 class PollWidget(QWidget):
-    """Simple two-choice poll widget.
-
-    Emits `choiceMade` with 0 or 1 when the player chooses.
-    """
     choiceMade = Signal(int)
     hoverChanged = Signal(int, bool)
 
@@ -25,14 +21,12 @@ class PollWidget(QWidget):
         lbl.setAlignment(Qt.AlignCenter)
 
         row = QHBoxLayout()
-        # show only generic labels to keep the UI clean
         self.btn_left = QPushButton("Risposta 1")
         self.btn_right = QPushButton("Risposta 2")
 
         self.btn_left.clicked.connect(lambda: self._on_choice(0))
         self.btn_right.clicked.connect(lambda: self._on_choice(1))
 
-        # install event filters to detect hover and notify parent
         self.btn_left.installEventFilter(self)
         self.btn_right.installEventFilter(self)
 
@@ -49,13 +43,11 @@ class PollWidget(QWidget):
         return t
 
     def _on_choice(self, idx: int):
-        # disable buttons to avoid double choice
         self.btn_left.setDisabled(True)
         self.btn_right.setDisabled(True)
         self.choiceMade.emit(idx)
 
     def eventFilter(self, watched, event):
-        # detect enter/leave on the buttons and emit hoverChanged(index, entering)
         if watched is self.btn_left:
             if event.type() == QEvent.Enter:
                 self.hoverChanged.emit(0, True)
