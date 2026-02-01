@@ -237,15 +237,17 @@ class MainWindow(QMainWindow):
             round_id = self._round_counter = self._round_counter + 1
             self._pending_rounds[round_id] = {"question": text, "ai": None, "human": None, "worker": None}
 
-            ai_worker = AIWorker(text, parent=self)
-            self._pending_rounds[round_id]["worker"] = ai_worker
-            ai_worker.responseReady.connect(lambda r, rid=round_id: self._on_ai_ready(rid, r))
-            ai_worker.start()
-
             dlg = PlayerResponseDialog(text, parent=self)
             if dlg.exec() == QDialog.Accepted:
                 resp = dlg.response_text
+                # register human response first so we can compute its length
                 self._on_human_ready(round_id, resp)
+
+                # start AI worker after human response, passing human response length
+                ai_worker = AIWorker(text, parent=self, human_length=len(resp))
+                self._pending_rounds[round_id]["worker"] = ai_worker
+                ai_worker.responseReady.connect(lambda r, rid=round_id: self._on_ai_ready(rid, r))
+                ai_worker.start()
             else:
                 try:
                     self._pending_rounds.pop(round_id, None)
