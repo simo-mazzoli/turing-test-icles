@@ -60,7 +60,7 @@ jobs:
     - name: Build with PyInstaller
       run: |
         python generate_spec.py
-        pyinstaller intesAIvincente.spec
+        pyinstaller turingtest.spec
     
     # Windows specific: Create installer with Inno Setup
     - name: Create Windows Installer
