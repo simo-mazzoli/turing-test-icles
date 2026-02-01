@@ -22,7 +22,7 @@ from turing_test.poll import PollWidget
 import random
 
 import rc_images
-# import rc_icons
+import rc_icons
 import rc_styles
 
 class MainWindow(QMainWindow):
@@ -59,8 +59,8 @@ class MainWindow(QMainWindow):
             Qt.SmoothTransformation
         ))
 
-        # self._icon_pixmap = QPixmap(":/icons/icon.ico")
-        # self.setWindowIcon(QIcon(self._icon_pixmap))
+        self._icon_pixmap = QPixmap(":/icons/icon.ico")
+        self.setWindowIcon(QIcon(self._icon_pixmap))
 
         self._stacked_widget = QStackedWidget(self)
         self._stacked_widget.setGeometry(0, 0, self.__MAIN_WINDOW_WIDTH, self.__MAIN_WINDOW_HEIGHT)
