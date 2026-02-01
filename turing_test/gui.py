@@ -18,6 +18,8 @@ from turing_test.fsm import StateMachine
 from turing_test.message import MessageWidget
 from turing_test.player_response import PlayerResponseDialog
 from turing_test.ai_worker import AIWorker
+from turing_test.poll import PollWidget
+import random
 
 import rc_images
 # import rc_icons
@@ -325,12 +327,45 @@ class MainWindow(QMainWindow):
                 messages_layout = container.layout()
                 if messages_layout is None:
                     return
-                # append human then ai
-                messages_layout.addWidget(MessageWidget(human_text, "other"))
-                messages_layout.addWidget(MessageWidget(ai_text, "other"))
-                # ensure visible
+                # create two choices and shuffle them so player must guess
+                choices = [(human_text, "human"), (ai_text, "ai")]
+                random.shuffle(choices)
+
+                msg_widgets = []
+                for text, role in choices:
+                    w = MessageWidget(text, "other")
+                    messages_layout.addWidget(w)
+                    msg_widgets.append((w, role))
+
+                # add poll below the two messages
+                poll = PollWidget(choices[0][0], choices[1][0])
+                messages_layout.addWidget(poll)
+
+                # determine which index corresponds to the human response
+                correct_index = 0 if choices[0][1] == "human" else 1
+                poll.choiceMade.connect(lambda idx, rid=round_id, p=poll, m=msg_widgets, ci=correct_index: self._on_poll_choice(rid, idx, p, m, ci))
+
+                # highlight corresponding message on hover
+                def _on_hover(idx, entering, m=msg_widgets):
+                    try:
+                        w, role = m[idx]
+                        bubble = w.findChild(QLabel, "messageBubble")
+                        if bubble is None:
+                            return
+                        # store original style once
+                        if not hasattr(bubble, '_orig_style'):
+                            bubble._orig_style = bubble.styleSheet()
+                        if entering:
+                            bubble.setStyleSheet(bubble._orig_style + "background-color: rgba(70,130,180,0.06);")
+                        else:
+                            bubble.setStyleSheet(bubble._orig_style)
+                    except Exception:
+                        pass
+
+                poll.hoverChanged.connect(_on_hover)
+                # ensure visible (scroll to bottom)
                 try:
-                    scroll.ensureWidgetVisible(container.children()[-1])
+                    scroll.ensureWidgetVisible(poll)
                 except Exception:
                     QTimer.singleShot(0, lambda: scroll.verticalScrollBar().setValue(scroll.verticalScrollBar().maximum()))
         finally:
@@ -339,3 +374,17 @@ class MainWindow(QMainWindow):
                 self._pending_rounds.pop(round_id, None)
             except Exception:
                 pass
+
+    def _on_poll_choice(self, round_id: int, choice_idx: int, poll_widget, msg_widgets, correct_index: int):
+        # mark messages: green for correct, red for incorrect selection
+        for i, (w, role) in enumerate(msg_widgets):
+            bubble = w.findChild(QLabel, "messageBubble")
+            if bubble is None:
+                continue
+            if i == correct_index:
+                # correct answer
+                bubble.setStyleSheet(bubble.styleSheet() + "border: 3px solid #28a745;")
+            if i == choice_idx and i != correct_index:
+                # chosen wrong answer
+                bubble.setStyleSheet(bubble.styleSheet() + "border: 3px solid #e53935;")
+
