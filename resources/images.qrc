@@ -1,0 +1,7 @@
+<!DOCTYPE RCC>
+<RCC>
+  <qresource prefix="/images">
+    <file alias="background.png">images/background.png</file>
+    <file alias="testa.png">images/testa.png</file>
+  </qresource>
+</RCC>

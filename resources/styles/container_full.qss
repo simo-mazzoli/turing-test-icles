@@ -1,0 +1,11 @@
+QWidget#whiteContainer {
+    background-color: rgba(255, 255, 255, 0.95);
+    border-top: 5px solid #3498db;
+    border-left: 5px solid #3498db;
+    border-right: 5px solid #3498db;
+    border-bottom: 5px solid #3498db;
+    border-top-left-radius: 30px;
+    border-top-right-radius: 30px;
+    border-bottom-left-radius: 30px;
+    border-bottom-right-radius: 30px;
+}

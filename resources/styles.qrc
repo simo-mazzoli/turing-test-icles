@@ -1,0 +1,8 @@
+<!DOCTYPE RCC>
+<RCC>
+  <qresource prefix="/styles">
+    <file alias="main.qss">styles/main.qss</file>
+    <file alias="container.qss">styles/container.qss</file>
+    <file alias="container_full.qss">styles/container_full.qss</file>
+  </qresource>
+</RCC>
