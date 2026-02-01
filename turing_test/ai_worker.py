@@ -16,6 +16,7 @@ class AIWorker(QThread):
 Il giocatore A sta giocando al turing test. Ha la possibilità di porre una domanda: "{self.prompt}". 
 Tu devi rispondere in modo indistinguibile da un essere umano.
 La tua risposta deve essere lunga circa {lunghezza} caratteri (simile alla risposta del destinatario).
+Evita l'uso di emoji e qualsiasi formattazione testuale (grassetto, corsivo, sottolineato o markup). Rispondi in testo semplice.
 """
 
             from turing_test.ai_client import AIClient

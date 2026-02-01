@@ -354,8 +354,18 @@ class MainWindow(QMainWindow):
             bubble = w.findChild(QLabel, "messageBubble")
             if bubble is None:
                 continue
+            # Ensure we have a stored original style used by hover handling
+            if not hasattr(bubble, '_orig_style'):
+                bubble._orig_style = bubble.styleSheet()
+
             if i == correct_index:
-                bubble.setStyleSheet(bubble.styleSheet() + "border: 3px solid #28a745;")
+                # apply green border and make it part of the stored original style
+                new_style = bubble._orig_style + "border: 3px solid #28a745;"
+                bubble._orig_style = new_style
+                bubble.setStyleSheet(new_style)
             if i == choice_idx and i != correct_index:
-                bubble.setStyleSheet(bubble.styleSheet() + "border: 3px solid #e53935;")
+                # apply red border for the (incorrect) chosen answer
+                new_style = bubble._orig_style + "border: 3px solid #e53935;"
+                bubble._orig_style = new_style
+                bubble.setStyleSheet(new_style)
 
