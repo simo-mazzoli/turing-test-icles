@@ -8,11 +8,13 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QLineEdit,
+    QPlainTextEdit,
     QHBoxLayout,
+    QMessageBox,
     QDialog,
 )
 from PySide6.QtGui import QPixmap, QIcon
-from PySide6.QtCore import Qt, QFile, QTextStream, QTimer
+from PySide6.QtCore import Qt, QFile, QTextStream, QTimer, QSettings
 
 from turing_test.fsm import StateMachine
 from turing_test.message import MessageWidget
@@ -126,16 +128,61 @@ class MainWindow(QMainWindow):
     def _create_settings_widget(self):
         widget = QWidget()
         layout = QVBoxLayout(widget)
-        layout.setAlignment(Qt.AlignBottom | Qt.AlignLeft)
+        layout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
         layout.setContentsMargins(20, 20, 20, 20)
-        
+
+        # Prompt template field
+        lbl_prompt = QLabel("Prompt template per l'AI:")
+        lbl_prompt.setStyleSheet("font-weight:600;")
+        self._settings_prompt_edit = QPlainTextEdit()
+        self._settings_prompt_edit.setFixedHeight(140)
+        self._settings_prompt_edit.setPlaceholderText('Usa {question}, {length} e {answer} come segnaposto')
+
+        # API key field (with show/hide toggle)
+        lbl_api = QLabel("API Key:")
+        lbl_api.setStyleSheet("font-weight:600;")
+        self._settings_api_key_edit = QLineEdit()
+        self._settings_api_key_edit.setEchoMode(QLineEdit.Password)
+        self._settings_api_key_edit.setPlaceholderText('Inserisci la chiave API per il servizio AI')
+        btn_toggle_api = QPushButton("Mostra")
+        btn_toggle_api.setFixedSize(80, 28)
+        btn_toggle_api.setObjectName('btnToggleApi')
+        btn_toggle_api.clicked.connect(lambda: self._toggle_api_visibility(btn_toggle_api))
+
+        # Buttons
+        btn_save = QPushButton("Salva")
+        btn_save.setObjectName("btnSaveSettings")
+        btn_save.setFixedSize(120, 40)
+        btn_save.clicked.connect(self._save_settings)
+
+        # preview button removed
+
         btn_back = QPushButton("Back")
         btn_back.setObjectName("btnBack")
-        btn_back.setMinimumSize(120, 50)
+        btn_back.setFixedSize(120, 40)
         btn_back.clicked.connect(self._fsm.go_to_main_menu.emit)
-        
-        layout.addWidget(btn_back)
-        
+
+        # Filler
+        layout.addStretch(2)
+
+        layout.addWidget(lbl_prompt)
+        layout.addWidget(self._settings_prompt_edit)
+        layout.addSpacing(8)
+        layout.addWidget(lbl_api)
+        h_api = QHBoxLayout()
+        h_api.addWidget(self._settings_api_key_edit)
+        h_api.addSpacing(8)
+        h_api.addWidget(btn_toggle_api)
+        layout.addLayout(h_api)
+        layout.addSpacing(12)
+        hl = QHBoxLayout()
+        hl.addStretch(1)
+        hl.addWidget(btn_save)
+        hl.addSpacing(8)
+        hl.addWidget(btn_back)
+        layout.addLayout(hl)
+        layout.addSpacing(20)
+
         return widget
     
     def _create_gamerules_widget(self):
@@ -243,10 +290,11 @@ class MainWindow(QMainWindow):
                 # register human response first so we can compute its length
                 self._on_human_ready(round_id, resp)
 
-                # start AI worker after human response, passing human response length
-                ai_worker = AIWorker(text, parent=self, human_length=len(resp))
+                # start AI worker after human response, passing human response length and the human answer
+                ai_worker = AIWorker(text, parent=self, human_length=len(resp), human_answer=resp)
                 self._pending_rounds[round_id]["worker"] = ai_worker
                 ai_worker.responseReady.connect(lambda r, rid=round_id: self._on_ai_ready(rid, r))
+                ai_worker.errorOccurred.connect(lambda err, rid=round_id: self._show_error_popup(err))
                 ai_worker.start()
             else:
                 try:
@@ -265,12 +313,108 @@ class MainWindow(QMainWindow):
 
     def on_settings_entered(self):
         self._stacked_widget.setCurrentIndex(1)
+        try:
+            settings = QSettings("TuringTest", "TuringTestApp")
+            prompt = settings.value('ai/prompt_template', '', type=str) or ''
+            api_key = settings.value('ai/api_key', '', type=str) or ''
+            if hasattr(self, '_settings_prompt_edit'):
+                self._settings_prompt_edit.setPlainText(prompt)
+            if hasattr(self, '_settings_api_key_edit'):
+                self._settings_api_key_edit.setText(api_key)
+                # ensure API key field is hidden by default when opening settings
+                try:
+                    self._settings_api_key_edit.setEchoMode(QLineEdit.Password)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    def _save_settings(self):
+        try:
+            settings = QSettings("TuringTest", "TuringTestApp")
+            prompt = ''
+            api_key = ''
+            if hasattr(self, '_settings_prompt_edit'):
+                prompt = self._settings_prompt_edit.toPlainText().strip()
+            if hasattr(self, '_settings_api_key_edit'):
+                api_key = self._settings_api_key_edit.text().strip()
+
+            missing_question = '{question}' not in prompt
+            missing_length = '{length}' not in prompt
+
+            if missing_question or missing_length:
+                msg = 'Il template dovrebbe contenere i segnaposto {question} e {length}.'
+                if missing_question and missing_length:
+                    QMessageBox.warning(self, 'Template non valido', msg + '\nSalvataggio annullato.')
+                    return
+                # If only one is missing, warn but allow user to proceed
+                reply = QMessageBox.question(self, 'Template incompleto', msg + '\nVuoi comunque salvare?', QMessageBox.Yes | QMessageBox.No)
+                if reply != QMessageBox.Yes:
+                    return
+
+            settings.setValue('ai/prompt_template', prompt)
+            settings.setValue('ai/api_key', api_key)
+        except Exception:
+            pass
+
+    def _toggle_api_visibility(self, btn: QPushButton):
+        try:
+            if self._settings_api_key_edit.echoMode() == QLineEdit.Password:
+                self._settings_api_key_edit.setEchoMode(QLineEdit.Normal)
+                btn.setText('Nascondi')
+            else:
+                self._settings_api_key_edit.setEchoMode(QLineEdit.Password)
+                btn.setText('Mostra')
+        except Exception:
+            pass
+
+    # preview removed
     
     def on_gamerules_entered(self):
         self._stacked_widget.setCurrentIndex(2)
 
     def on_gameplay_entered(self):
         self._stacked_widget.setCurrentIndex(3)
+
+    def _show_error_popup(self, error_text: str):
+        try:
+            dlg = QDialog(self)
+            dlg.setWindowTitle("Errore");
+            dlg.setModal(False)
+            dlg.setFixedSize(520, 240)
+
+            layout = QVBoxLayout(dlg)
+            title = QLabel("Errore nel servizio AI")
+            title.setStyleSheet("font-weight:700; font-size:16px; color: #ffffff;")
+            title.setAlignment(Qt.AlignLeft)
+
+            code_label = QLabel(error_text)
+            code_label.setWordWrap(True)
+            code_label.setStyleSheet(
+                "background: #2b2b2b; color: #f1f1f1; padding: 10px; border-radius: 6px; font-family: monospace; font-size:12px;"
+            )
+
+            btn_close = QPushButton("Chiudi")
+            btn_close.setFixedSize(100, 32)
+            btn_close.clicked.connect(dlg.accept)
+
+            layout.addWidget(title)
+            layout.addWidget(code_label)
+            layout.addStretch(1)
+            hl = QHBoxLayout()
+            hl.addStretch(1)
+            hl.addWidget(btn_close)
+            layout.addLayout(hl)
+
+            # Apply container styling if available
+            try:
+                dlg.setStyleSheet(self._load_stylesheet(":/styles/container.qss") + " QDialog { background: rgba(40,40,40,0.95); }")
+            except Exception:
+                pass
+
+            dlg.show()
+        except Exception:
+            pass
 
     def _on_ai_ready(self, round_id: int, text: str):
         pending = self._pending_rounds.get(round_id)
