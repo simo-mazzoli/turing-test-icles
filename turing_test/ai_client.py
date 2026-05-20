@@ -12,7 +12,7 @@ class AIClient:
     MAX_REQUESTS_PER_MINUTE = 15
     RATE_LIMIT_WINDOW = 60
 
-    def __init__(self, api_key: str = "AIzaSyAmFz8g-tJDFL4h1ByIcN0vB3N0aSMFTgc", model_name: str = "gemma-3-27b-it"):
+    def __init__(self, api_key: str = "AIzaSyAmFz8g-tJDFL4h1ByIcN0vB3N0aSMFTgc", model_name: str = "gemma-4-31b-it"):
         self.api_key = api_key
         self.model_name = model_name
         self.client = genai.Client(api_key=api_key)
